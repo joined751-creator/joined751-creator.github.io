@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Лекарства"><meta name="theme-color" content="#0d1312"></head><body style="margin:0">
+<title>Лекарства по часам</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Manrope:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  --bg:#eef2f1; --surface:#ffffff; --surface2:#f6f8f7; --ink:#16201e; --muted:#5d6b68; --line:#dbe3e0;
+  --accent:#0c7566; --accent-ink:#ffffff; --ok:#1d8a4b; --ok-bg:#e3f4ea; --wait-bg:#eef1f0;
+  --m1:#d9573a; --m2:#b97d0c; --m3:#2a6cc6; --m4:#7550c2; --m5:#bf3d7c; --m6:#3a8f8a;
+  --shadow:0 1px 2px rgba(20,40,36,.06),0 6px 20px rgba(20,40,36,.06);
+  --f-display:"Unbounded",system-ui,sans-serif; --f-body:"Manrope",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#0d1312; --surface:#151e1c; --surface2:#1a2422; --ink:#e5eeeb; --muted:#91a29e; --line:#26322f;
+  --accent:#4ccdb5; --accent-ink:#06201b; --ok:#4fd08b; --ok-bg:#15301f; --wait-bg:#1d2826;
+  --m1:#ff8667; --m2:#f0b648; --m3:#6fa6ff; --m4:#a98cff; --m5:#ff7fb5; --m6:#5fd0c8;
+  --shadow:0 1px 2px rgba(0,0,0,.3); color-scheme:dark}
+  .give{color:#0d1312!important}
+  .toast button{color:#0c7566!important}}
+*{box-sizing:border-box}
+html{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);background:var(--bg)}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.45;-webkit-tap-highlight-color:transparent;-webkit-text-size-adjust:100%}
+.wrap{max-width:560px;margin:0 auto;padding-block:20px 120px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:18px}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
+button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.num{font-variant-numeric:tabular-nums}
+[hidden]{display:none!important}
+
+header{display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
+h1{font-family:var(--f-display);font-weight:700;font-size:22px;letter-spacing:-.01em;margin:0;text-wrap:balance}
+.clock{font-family:var(--f-display);font-weight:500;font-size:15px;color:var(--muted)}
+.iconbtn{width:40px;height:40px;border-radius:12px;background:var(--surface);border:1px solid var(--line);display:grid;place-items:center;flex:none}
+.iconbtn svg{width:20px;height:20px;stroke:var(--ink)}
+
+.summary{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px 16px;display:grid;gap:8px}
+.sumrow{display:flex;gap:10px;align-items:baseline;min-width:0}
+.sumrow .lbl{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.06em;font-weight:600;flex:none;width:118px}
+.sumrow .val{font-weight:600;min-width:0}
+
+.cards{display:grid;gap:12px}
+.card{background:var(--surface);border-radius:20px;box-shadow:var(--shadow);border:1px solid var(--line);padding:16px;display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:center}
+.ring{width:76px;height:76px;position:relative;flex:none}
+.ring svg{width:76px;height:76px;transform:rotate(-90deg)}
+.ring .track{stroke:var(--line)}
+.ring .bar{transition:stroke-dashoffset .6s ease}
+.ring .mid{position:absolute;inset:0;display:grid;place-items:center;text-align:center;line-height:1.05}
+.ring .big{font-family:var(--f-display);font-weight:700;font-size:17px}
+.ring .small{font-size:10.5px;color:var(--muted);font-weight:600}
+.info{min-width:0;display:grid;gap:4px}
+.name{font-family:var(--f-display);font-weight:500;font-size:16px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.form{font-family:var(--f-body);font-size:12px;color:var(--muted);font-weight:500}
+.since{color:var(--muted);font-size:13.5px}
+.since b{color:var(--ink);font-weight:600}
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:700;padding:4px 10px;border-radius:999px;width:fit-content}
+.pill.ok{background:var(--ok-bg);color:var(--ok)}
+.pill.wait{background:var(--wait-bg);color:var(--muted)}
+.pill.never{background:var(--wait-bg);color:var(--muted)}
+.pill.limit{background:var(--wait-bg);color:var(--m1)}
+.actions{grid-column:1/-1;display:flex;gap:8px}
+.give{flex:1;height:48px;border-radius:14px;font-weight:700;font-size:15px;color:#fff;background:var(--c)}
+.give:active{transform:scale(.98)}
+.alt{height:48px;padding:0 14px;border-radius:14px;background:var(--surface2);border:1px solid var(--line);font-weight:600;font-size:13.5px;color:var(--muted)}
+
+.tempbar{display:flex;gap:8px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:10px 10px 10px 16px}
+.tempbar label{font-weight:600;flex:1;min-width:0}
+.tempbar input{width:90px;height:42px;border-radius:12px;border:1px solid var(--line);background:var(--surface2);color:var(--ink);font:inherit;font-weight:700;text-align:center;font-size:16px}
+.tempbar button{height:42px;padding:0 14px;border-radius:12px;background:var(--accent);color:var(--accent-ink);font-weight:700}
+
+h2{font-family:var(--f-display);font-weight:500;font-size:14px;margin:6px 0 0;color:var(--muted);letter-spacing:.02em}
+.log{display:grid;gap:14px}
+.day{display:grid;gap:2px}
+.dayname{font-size:12px;text-transform:uppercase;letter-spacing:.07em;font-weight:700;color:var(--muted);padding:0 4px 6px}
+.entry{display:grid;grid-template-columns:52px 12px 1fr auto;gap:10px;align-items:center;padding:10px 6px 10px 4px;border-bottom:1px solid var(--line)}
+.entry:last-child{border-bottom:0}
+.entry .t{font-weight:700;font-variant-numeric:tabular-nums}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--c)}
+.entry .what{min-width:0}
+.entry .what small{display:block;color:var(--muted);font-size:12.5px}
+.del{font-size:12.5px;font-weight:600;color:var(--muted);padding:6px 8px;border-radius:8px}
+.del.armed{background:var(--m1);color:#fff}
+.empty{color:var(--muted);text-align:center;padding:22px 8px;border:1px dashed var(--line);border-radius:16px}
+
+.foot{color:var(--muted);font-size:12.5px;text-align:center;line-height:1.5}
+
+.scrim{position:fixed;inset:0;background:rgba(5,12,11,.45);z-index:30;display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:var(--surface);width:100%;max-width:560px;border-radius:22px 22px 0 0;padding:20px max(16px,env(safe-area-inset-right,0px)) calc(20px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));display:grid;gap:14px;max-height:88vh;overflow:auto}
+.sheet h3{font-family:var(--f-display);font-weight:500;font-size:17px;margin:0}
+.field{display:grid;gap:6px}
+.field span{font-size:12.5px;color:var(--muted);font-weight:600}
+.field input,.medrow input{height:46px;border-radius:12px;border:1px solid var(--line);background:var(--surface2);color:var(--ink);font:inherit;font-size:16px;padding:0 12px;width:100%;min-width:0}
+.quick{display:flex;gap:6px;flex-wrap:wrap}
+.quick button{padding:8px 12px;border-radius:10px;background:var(--surface2);border:1px solid var(--line);font-weight:600;font-size:13px}
+.row{display:flex;gap:8px}
+.primary{flex:1;height:50px;border-radius:14px;background:var(--accent);color:var(--accent-ink);font-weight:700}
+.secondary{height:50px;padding:0 18px;border-radius:14px;background:var(--surface2);border:1px solid var(--line);font-weight:600}
+.medrow{display:grid;grid-template-columns:14px 1fr 74px 64px 36px;gap:8px;align-items:center}
+.medrow .dot{width:12px;height:12px}
+.medhead{display:grid;grid-template-columns:14px 1fr 74px 64px 36px;gap:8px;font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+.medrow .x{width:36px;height:46px;border-radius:10px;color:var(--muted);font-size:18px}
+.note{font-size:12.5px;color:var(--muted);background:var(--surface2);border-radius:12px;padding:10px 12px}
+
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);border-radius:14px;padding:12px 14px 12px 18px;display:flex;gap:14px;align-items:center;z-index:40;box-shadow:0 8px 30px rgba(0,0,0,.25);max-width:calc(100% - 32px);font-weight:600}
+.toast button{color:var(--accent);font-weight:700;background:none;padding:4px 6px}
+@media (max-width:380px){.sumrow .lbl{width:96px}.ring,.ring svg{width:66px;height:66px}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Лекарства по часам</h1>
+      <div class="clock num" id="clock"></div>
+    </div>
+    <button class="iconbtn" id="openSettings" aria-label="Настроить лекарства">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>
+    </button>
+  </header>
+
+  <section class="summary" id="summary"></section>
+  <section class="cards" id="cards"></section>
+
+  <div class="tempbar">
+    <label for="tempInput">Температура</label>
+    <input id="tempInput" class="num" inputmode="decimal" placeholder="37.8" aria-label="Температура, °C">
+    <button id="tempSave">Записать</button>
+  </div>
+
+  <h2>Журнал</h2>
+  <section class="log" id="log"></section>
+
+  <p class="foot">Записи хранятся только на этом телефоне, в этом браузере.<br>
+  Интервалы и дозировки — по назначению врача и инструкции. Их можно изменить в настройках.</p>
+</div>
+
+<div id="sheetHost"></div>
+<div id="toastHost"></div>
+
+<script>
+const DEFAULT_MEDS=[
+  {id:"cefekon",name:"Цефекон Д",form:"свечи · жаропонижающее",hours:6,max:3,color:"m1",fever:true},
+  {id:"nurofen",name:"Нурофен",form:"сироп · жаропонижающее",hours:6,max:3,color:"m2",fever:true},
+  {id:"miramistin",name:"Мирамистин",form:"спрей",hours:4,max:4,color:"m3",fever:false},
+  {id:"genferon",name:"Генферон Лайт",form:"свечи",hours:12,max:2,color:"m4",fever:false}
+];
+const COLORS=["m1","m2","m3","m4","m5","m6"];
+const LS={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+let meds=LS.get("meds",DEFAULT_MEDS), doses=LS.get("doses",[]), pending={};
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
+
+function addDose(d){ d.id=d.id||uid(); doses.push(d); LS.set("doses",doses); render(); return d.id; }
+function removeDose(id){ doses=doses.filter(x=>x.id!==id); LS.set("doses",doses); render(); }
+function saveMeds(list){ meds=list; LS.set("meds",list); render(); }
+
+const H=3600e3,M=60e3;
+function dur(ms){
+  ms=Math.max(0,ms); const h=Math.floor(ms/H), m=Math.floor((ms%H)/M);
+  if(h>=48) return Math.floor(h/24)+" дн";
+  if(h===0) return m<1?"меньше минуты":m+" мин";
+  return h+" ч"+(m?" "+m+" мин":"");
+}
+function hm(t){const d=new Date(t);return d.toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"})}
+function dayKey(t){const d=new Date(t);return d.getFullYear()+"-"+d.getMonth()+"-"+d.getDate()}
+function dayName(t){
+  const now=new Date(), d=new Date(t);
+  const k=dayKey(t); if(k===dayKey(now))return "Сегодня";
+  const y=new Date(now); y.setDate(y.getDate()-1); if(k===dayKey(y))return "Вчера";
+  return d.toLocaleDateString("ru-RU",{weekday:"long",day:"numeric",month:"long"});
+}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function medById(id){return meds.find(m=>m.id===id)}
+function lastOf(id){let b=null;for(const d of doses)if(d.med===id&&(!b||d.at>b.at))b=d;return b}
+function last24(id){const c=Date.now()-24*H;return doses.filter(d=>d.med===id&&d.at>c).length}
+
+function render(){
+  const now=Date.now();
+  document.getElementById("clock").textContent=new Date(now).toLocaleDateString("ru-RU",{weekday:"long",day:"numeric",month:"long"})+" · "+hm(now);
+
+  const C=2*Math.PI*32;
+  document.getElementById("cards").innerHTML=meds.map(m=>{
+    const last=lastOf(m.id), iv=(+m.hours||0)*H, n24=last24(m.id);
+    let pct=1, big="—", small="ещё не давали", pill='<span class="pill never">Ещё не давали</span>', since="Нажмите, когда дадите";
+    if(last){
+      const el=now-last.at; pct=iv?Math.min(1,el/iv):1;
+      big=el<H?Math.floor(el/M)+"м":(el/H<10?(el/H).toFixed(1).replace(".",",")+"ч":Math.floor(el/H)+"ч");
+      small="прошло";
+      since='Дали в <b class="num">'+hm(last.at)+'</b>'+(dayKey(last.at)!==dayKey(now)?" ("+dayName(last.at).toLowerCase()+")":"")+' · <span class="num">'+dur(el)+'</span> назад';
+      if(iv&&el<iv) pill='<span class="pill wait num">Следующий приём через '+dur(iv-el)+' · в '+hm(last.at+iv)+'</span>';
+      else pill='<span class="pill ok">● Можно давать</span>';
+      if(m.max&&n24>=m.max&&!(iv&&el<iv)) pill='<span class="pill limit">Уже '+n24+' раз за сутки (макс. '+m.max+')</span>';
+    }
+    const cnt=m.max?'<span class="form num">'+n24+' из '+m.max+' за 24 ч</span>':'';
+    return `<article class="card" style="--c:var(--${m.color||"m6"})">
+      <div class="ring" aria-hidden="true"><svg viewBox="0 0 76 76"><circle class="track" cx="38" cy="38" r="32" fill="none" stroke-width="7"/>
+      <circle class="bar" cx="38" cy="38" r="32" fill="none" stroke="var(--c)" stroke-width="7" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${C*(1-pct)}"/></svg>
+      <div class="mid"><div><div class="big num">${big}</div><div class="small">${small}</div></div></div></div>
+      <div class="info"><div class="name">${esc(m.name)}</div><div class="form">${esc(m.form||"")}${m.hours?" · каждые "+String(m.hours).replace(".",",")+" ч":""}</div>
+      ${pill}<div class="since">${since}</div>${cnt}</div>
+      <div class="actions"><button class="give" data-give="${esc(m.id)}">Дал сейчас</button><button class="alt" data-alt="${esc(m.id)}">Другое время</button></div>
+    </article>`;
+  }).join("");
+
+  const fever=doses.filter(d=>{const m=medById(d.med);return m&&m.fever}).sort((a,b)=>b.at-a.at)[0];
+  const temps=doses.filter(d=>d.med==="temp").sort((a,b)=>b.at-a.at);
+  let next=null;
+  for(const m of meds){const l=lastOf(m.id); if(!l||!m.hours)continue; const t=l.at+m.hours*H; if(t>now&&(!next||t<next.t))next={m,t};}
+  const rows=[];
+  rows.push(`<div class="sumrow"><span class="lbl">Жаропонижающее</span><span class="val num">${fever?esc(medById(fever.med).name)+" · "+dur(now-fever.at)+" назад":"не давали"}</span></div>`);
+  rows.push(`<div class="sumrow"><span class="lbl">Температура</span><span class="val num">${temps[0]?temps[0].value+" °C в "+hm(temps[0].at)+" ("+dur(now-temps[0].at)+" назад)":"не записана"}</span></div>`);
+  rows.push(`<div class="sumrow"><span class="lbl">Ближайшее</span><span class="val num">${next?esc(next.m.name)+" в "+hm(next.t)+" (через "+dur(next.t-now)+")":"всё можно давать по необходимости"}</span></div>`);
+  document.getElementById("summary").innerHTML=rows.join("");
+
+  const sorted=doses.slice().sort((a,b)=>b.at-a.at).slice(0,200);
+  if(!sorted.length){document.getElementById("log").innerHTML='<div class="empty">Здесь появится история: время, лекарство и сколько прошло с прошлого раза.<br>Нажмите «Дал сейчас» на карточке выше.</div>';return}
+  const groups=[];let cur=null;
+  for(const d of sorted){const k=dayKey(d.at);if(!cur||cur.k!==k){cur={k,name:dayName(d.at),items:[]};groups.push(cur)}cur.items.push(d)}
+  document.getElementById("log").innerHTML=groups.map(g=>`<div class="day"><div class="dayname">${g.name}</div>${g.items.map(d=>{
+    let name,c,sub="";
+    if(d.med==="temp"){name="Температура "+esc(d.value)+" °C";c="var(--muted)"}
+    else{const m=medById(d.med);name=m?esc(m.name):"Удалённое лекарство";c="var(--"+(m&&m.color||"m6")+")";
+      const prev=doses.filter(x=>x.med===d.med&&x.at<d.at).sort((a,b)=>b.at-a.at)[0];
+      if(prev)sub="через "+dur(d.at-prev.at)+" после прошлого";}
+    if(d.note)sub=(sub?sub+" · ":"")+esc(d.note);
+    return `<div class="entry"><span class="t">${hm(d.at)}</span><span class="dot" style="--c:${c}"></span><span class="what">${name}${sub?"<small>"+sub+"</small>":""}</span><button class="del${pending[d.id]?" armed":""}" data-del="${esc(d.id)}">${pending[d.id]?"Удалить":"✕"}</button></div>`;
+  }).join("")}</div>`).join("");
+}
+
+let toastTimer;
+function toast(text,undo){
+  const host=document.getElementById("toastHost");
+  host.innerHTML=`<div class="toast" role="status"><span>${esc(text)}</span>${undo?'<button id="undoBtn">Отменить</button>':""}</div>`;
+  if(undo)document.getElementById("undoBtn").onclick=()=>{undo();host.innerHTML=""};
+  clearTimeout(toastTimer);toastTimer=setTimeout(()=>host.innerHTML="",5000);
+}
+
+function closeSheet(){document.getElementById("sheetHost").innerHTML=""}
+function openSheet(html,onReady){
+  const host=document.getElementById("sheetHost");
+  host.innerHTML=`<div class="scrim" id="scrim"><div class="sheet" role="dialog" aria-modal="true">${html}</div></div>`;
+  document.getElementById("scrim").addEventListener("click",e=>{if(e.target.id==="scrim")closeSheet()});
+  onReady&&onReady();
+}
+function toLocalInput(t){const d=new Date(t);d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,16)}
+
+function openTimeSheet(id){
+  const m=medById(id);
+  openSheet(`<h3>${esc(m.name)}: когда дали?</h3>
+    <div class="quick"><button data-ago="15">15 мин назад</button><button data-ago="30">30 мин</button><button data-ago="60">1 ч</button><button data-ago="120">2 ч</button></div>
+    <label class="field"><span>Дата и время</span><input type="datetime-local" id="whenInput"></label>
+    <label class="field"><span>Заметка (необязательно)</span><input id="noteInput" placeholder="например, 5 мл или половина свечи"></label>
+    <div class="row"><button class="secondary" id="cancelT">Отмена</button><button class="primary" id="saveT">Записать</button></div>`,()=>{
+    const w=document.getElementById("whenInput"); w.value=toLocalInput(Date.now());
+    document.querySelectorAll("[data-ago]").forEach(b=>b.onclick=()=>w.value=toLocalInput(Date.now()-b.dataset.ago*M));
+    document.getElementById("cancelT").onclick=closeSheet;
+    document.getElementById("saveT").onclick=()=>{
+      const at=new Date(w.value).getTime(); if(!at)return;
+      const note=document.getElementById("noteInput").value.trim();
+      closeSheet(); const did=addDose({med:id,at:Math.min(at,Date.now()),note});
+      toast(m.name+" записан в "+hm(at),()=>removeDose(did));
+    };
+  });
+}
+
+function openSettings(){
+  let draft=meds.map(m=>Object.assign({},m));
+  const draw=()=>{
+    openSheet(`<h3>Лекарства</h3>
+      <div class="medhead"><span></span><span>Название</span><span>Каждые, ч</span><span>Макс./сут</span><span></span></div>
+      ${draft.map((m,i)=>`<div class="medrow"><span class="dot" style="--c:var(--${m.color})"></span>
+        <input data-i="${i}" data-k="name" value="${esc(m.name)}" aria-label="Название">
+        <input data-i="${i}" data-k="hours" class="num" inputmode="decimal" value="${m.hours||""}" aria-label="Интервал в часах">
+        <input data-i="${i}" data-k="max" class="num" inputmode="numeric" value="${m.max||""}" aria-label="Максимум в сутки">
+        <button class="x" data-rm="${i}" aria-label="Убрать">✕</button></div>`).join("")}
+      <button class="secondary" id="addMed">+ Добавить лекарство</button>
+      <div class="note">Поставьте интервал и максимум приёмов так, как сказал врач или как написано в инструкции. Пустое поле — без ограничения. Жаропонижающими считаются Цефекон Д и Нурофен.</div>
+      <div class="row"><button class="secondary" id="cancelS">Отмена</button><button class="primary" id="saveS">Сохранить</button></div>`,()=>{
+      document.querySelectorAll(".medrow input").forEach(inp=>inp.oninput=()=>{
+        const m=draft[inp.dataset.i],k=inp.dataset.k,v=inp.value;
+        m[k]=k==="name"?v:(parseFloat(v.replace(",","."))||0);
+      });
+      document.querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{draft.splice(+b.dataset.rm,1);draw()});
+      document.getElementById("addMed").onclick=()=>{draft.push({id:uid(),name:"Новое лекарство",form:"",hours:8,max:0,color:COLORS[draft.length%COLORS.length],fever:false});draw()};
+      document.getElementById("cancelS").onclick=closeSheet;
+      document.getElementById("saveS").onclick=()=>{draft=draft.filter(m=>m.name.trim());closeSheet();saveMeds(draft);toast("Сохранено")};
+    });
+  };
+  draw();
+}
+
+document.addEventListener("click",e=>{
+  const g=e.target.closest("[data-give]"); if(g){const m=medById(g.dataset.give);const did=addDose({med:m.id,at:Date.now(),note:""});toast(m.name+" — записано в "+hm(Date.now()),()=>removeDose(did));return}
+  const a=e.target.closest("[data-alt]"); if(a){openTimeSheet(a.dataset.alt);return}
+  const d=e.target.closest("[data-del]"); if(d){const id=d.dataset.del;
+    if(pending[id]){delete pending[id];removeDose(id)} else {pending={};pending[id]=1;render();setTimeout(()=>{if(pending[id]){delete pending[id];render()}},3500)} return}
+});
+document.getElementById("openSettings").onclick=openSettings;
+document.getElementById("tempSave").onclick=()=>{
+  const inp=document.getElementById("tempInput"); const v=parseFloat(inp.value.replace(",","."));
+  if(!(v>=34&&v<=43)){inp.focus();toast("Введите температуру, например 38.2");return}
+  inp.value=""; const did=addDose({med:"temp",at:Date.now(),value:v.toFixed(1)});
+  toast("Температура "+v.toFixed(1)+" °C записана",()=>removeDose(did));
+};
+document.getElementById("tempInput").addEventListener("keydown",e=>{if(e.key==="Enter")document.getElementById("tempSave").click()});
+setInterval(render,20000);
+document.addEventListener("visibilitychange",()=>{if(!document.hidden)render()});
+render();
+</script>
+</body></html>
