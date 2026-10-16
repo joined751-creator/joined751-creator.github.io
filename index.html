@@ -104,7 +104,13 @@ header{display:flex;align-items:center;justify-content:space-between;gap:12px;pa
 .tempform input{flex:1;min-width:0;height:48px;border-radius:14px;border:1px solid var(--line);background:var(--surface2);color:var(--ink);font:inherit;font-weight:700;font-size:17px;padding:0 14px}
 .tempform button{height:48px;padding:0 18px;border-radius:14px;background:var(--accent);color:var(--accent-ink);font-weight:800}
 .qt{display:flex;gap:6px;flex-wrap:wrap}
-.qt button{padding:7px 11px;border-radius:10px;background:var(--surface2);border:1px solid var(--line);font-weight:700;font-size:13px}
+.qt{align-items:center}
+.qt .ql{font-size:12px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-right:2px}
+.qt button{padding:8px 12px;border-radius:12px;background:var(--surface2);border:1px solid var(--line);font-weight:700;font-size:13px;color:var(--muted)}
+.qt button.on{background:color-mix(in srgb,var(--accent) 18%,transparent);border-color:var(--accent);color:var(--ink)}
+.tcustom{height:46px;border-radius:14px;border:1px solid var(--line);background:var(--surface2);color:var(--ink);font:inherit;font-size:16px;padding:0 12px;width:100%;min-width:0}
+.tprev{font-size:13px;color:var(--muted);min-height:20px}
+.tprev b{font-weight:800}
 
 /* 24h strip */
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:24px;padding:16px;display:grid;gap:10px}
@@ -207,9 +213,12 @@ h2{font-family:var(--f-display);font-weight:600;font-size:15px;margin:0}
     </div>
     <svg class="spark" id="spark" viewBox="0 0 300 56" preserveAspectRatio="none" aria-hidden="true"></svg>
     <div class="tempform">
-      <input id="tempInput" class="num" inputmode="decimal" placeholder="Например, 38,2" aria-label="Температура, °C">
+      <input id="tempInput" class="num" inputmode="decimal" autocomplete="off" placeholder="Например, 381" aria-label="Температура, °C">
       <button id="tempSave">Записать</button>
     </div>
+    <div class="tprev num" id="tempPrev"></div>
+    <div class="qt" id="tempWhen"><span class="ql">Когда</span><button data-tw="0" class="on">Сейчас</button><button data-tw="15">15 мин назад</button><button data-tw="30">30 мин</button><button data-tw="60">1 ч</button><button data-tw="custom">Другое время</button></div>
+    <input type="datetime-local" id="tempCustom" class="tcustom" aria-label="Время измерения" hidden>
   </section>
 
   <section class="panel">
@@ -387,6 +396,7 @@ function tick(){
   if(document.getElementById("sheetHost").firstChild)return;
   if(sig()!==lastSig){render();return}
   document.querySelectorAll("[data-since]").forEach(el=>el.innerHTML=clockDur(now-(+el.dataset.since)));
+  if(d.getSeconds()===0)updTempPrev();
 }
 
 let toastTimer;
@@ -463,12 +473,55 @@ document.addEventListener("click",e=>{
     if(pending[id]){delete pending[id];removeDose(id)}else{pending={};pending[id]=1;render();setTimeout(()=>{if(pending[id]){delete pending[id];render()}},3500)}return}
 });
 document.getElementById("openSettings").onclick=openSettings;
+/* temperature input: 381 -> 38,1 */
+let tw="0";
+function parseTemp(str){
+  const s=String(str).replace(/\s/g,"").replace(".",",");if(!s)return NaN;
+  if(s.includes(","))return parseFloat(s.replace(",","."));
+  const d=s.replace(/\D/g,"");if(!d)return NaN;
+  return d.length<=2?+d:+(d.slice(0,2)+"."+d.slice(2,3));
+}
+function tempAt(){
+  if(tw==="custom"){const t=new Date(document.getElementById("tempCustom").value).getTime();return t?Math.min(t,Date.now()):Date.now()}
+  return Date.now()-(+tw)*M;
+}
+function updTempPrev(){
+  const inp=document.getElementById("tempInput"),el=document.getElementById("tempPrev"),v=parseTemp(inp.value);
+  const tc=v>=38?"var(--bad)":v>=37.3?"var(--warn)":"var(--ok)";
+  if(!inp.value)el.innerHTML="Можно без запятой: наберите 381 — будет 38,1";
+  else if(v>=34&&v<=43)el.innerHTML=`Запишется <b style="color:${tc}">${v.toFixed(1).replace(".",",")} °C</b> на <b>${hm(tempAt())}</b>`;
+  else el.innerHTML="Похоже на опечатку — нужно от 34 до 43 °C";
+}
+const tIn=document.getElementById("tempInput");
+tIn.addEventListener("input",e=>{
+  if(!(e.inputType&&e.inputType.startsWith("delete"))){
+    let s=tIn.value.replace(/\./g,",").replace(/[^\d,]/g,"");
+    const i=s.indexOf(",");
+    if(i>=0)s=s.slice(0,i+1)+s.slice(i+1).replace(/,/g,"").slice(0,1);
+    else if(s.length>=3)s=s.slice(0,2)+","+s.slice(2,3);
+    tIn.value=s;
+  }
+  updTempPrev();
+});
+document.getElementById("tempWhen").addEventListener("click",e=>{
+  const b=e.target.closest("[data-tw]");if(!b)return;
+  tw=b.dataset.tw;
+  document.querySelectorAll("#tempWhen [data-tw]").forEach(x=>x.classList.toggle("on",x===b));
+  const c=document.getElementById("tempCustom");
+  c.hidden=tw!=="custom";if(tw==="custom"){c.value=toLocalInput(Date.now());c.focus()}
+  updTempPrev();
+});
+document.getElementById("tempCustom").addEventListener("input",updTempPrev);
 document.getElementById("tempSave").onclick=()=>{
-  const inp=document.getElementById("tempInput");const v=parseFloat(inp.value.replace(",","."));
-  if(!(v>=34&&v<=43)){inp.focus();toast("Введите температуру, например 38,2");return}
-  inp.value="";inp.blur();const did=addDose({med:"temp",at:Date.now(),value:v.toFixed(1)});
-  toast("Температура "+v.toFixed(1).replace(".",",")+" °C записана",()=>removeDose(did));
+  const v=parseTemp(tIn.value);
+  if(!(v>=34&&v<=43)){tIn.focus();toast("Введите температуру, например 381 или 38,1");return}
+  const at=tempAt();
+  tIn.value="";tIn.blur();const did=addDose({med:"temp",at,value:v.toFixed(1)});
+  tw="0";document.querySelectorAll("#tempWhen [data-tw]").forEach(x=>x.classList.toggle("on",x.dataset.tw==="0"));document.getElementById("tempCustom").hidden=true;
+  updTempPrev();
+  toast("Температура "+v.toFixed(1).replace(".",",")+" °C — записано на "+hm(at),()=>removeDose(did));
 };
+updTempPrev();
 document.getElementById("tempInput").addEventListener("keydown",e=>{if(e.key==="Enter")document.getElementById("tempSave").click()});
 document.addEventListener("visibilitychange",()=>{if(!document.hidden)render()});
 render();tick();setInterval(tick,1000);
