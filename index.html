@@ -181,6 +181,8 @@ h2{font-family:var(--f-display);font-weight:600;font-size:15px;margin:0}
 .medcard .r2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .medcard label span{display:block;font-size:11.5px;color:var(--muted);font-weight:600;margin-bottom:4px}
 .medcard .x{width:44px;height:48px;border-radius:12px;color:var(--faint);font-size:18px;flex:none}
+.bk textarea{width:100%;min-height:90px;border-radius:14px;border:1px solid var(--line);background:var(--surface2);color:var(--ink);font:inherit;font-size:13px;padding:10px 12px;resize:vertical}
+.bk .row button{flex:1}
 .note{font-size:12.5px;color:var(--muted);background:var(--surface2);border-radius:14px;padding:10px 12px}
 
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(18px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);border-radius:16px;padding:12px 12px 12px 18px;display:flex;gap:12px;align-items:center;z-index:40;box-shadow:0 10px 30px rgba(0,0,0,.35);width:max-content;max-width:calc(100% - 32px);font-weight:600;animation:up .25s ease}
@@ -450,6 +452,13 @@ function openSettings(){
       <div class="medcard" style="--c:var(--accent)"><label class="tog"><input type="checkbox" id="altOn" ${alt.on?"checked":""}> Давать жаропонижающие по очереди</label>
         <label><span>Минимум между разными жаропонижающими, часов</span><input id="altGap" class="num" inputmode="decimal" value="${alt.gap||""}"></label></div>
       <button class="secondary" id="addMed">+ Добавить лекарство</button>
+      <div class="medcard bk" style="--c:var(--accent)">
+        <div class="tog">Резервная копия · записей: ${doses.length}</div>
+        <div class="meta">Сохраните копию в Заметки или отправьте себе в мессенджер. Если данные пропадут или вы откроете сайт на другом телефоне — вставьте её сюда и нажмите «Восстановить».</div>
+        <div class="row"><button class="secondary" id="bkSave">Сохранить копию</button></div>
+        <textarea id="bkIn" placeholder="Вставьте сюда сохранённую копию"></textarea>
+        <div class="row"><button class="secondary" id="bkLoad">Восстановить</button></div>
+      </div>
       <div class="note">Интервал и максимум приёмов — как сказал врач или как написано в инструкции. Пустое поле — без ограничения. Промежуток между разными жаропонижающими тоже уточните у врача. Слова «свечи», «сироп», «спрей» в форме меняют иконку.</div>
       <div class="row"><button class="secondary" id="cancelS">Отмена</button><button class="primary" id="saveS">Сохранить</button></div>`,()=>{
       document.querySelectorAll(".medcard input[data-i]").forEach(inp=>inp.oninput=inp.onchange=()=>{
@@ -459,6 +468,22 @@ function openSettings(){
       document.querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{draft.splice(+b.dataset.rm,1);draw()});
       document.getElementById("addMed").onclick=()=>{draft.push({id:uid(),name:"Новое лекарство",form:"",hours:8,max:0,color:COLORS[draft.length%COLORS.length],fever:false});draw()};
       document.getElementById("cancelS").onclick=closeSheet;
+      document.getElementById("bkSave").onclick=async()=>{
+        const txt="LEKARSTVA-BACKUP "+JSON.stringify({v:1,meds,doses,alt});
+        try{if(navigator.share){await navigator.share({title:"Лекарства — копия "+new Date().toLocaleString("ru-RU"),text:txt});return}}catch(e){if(e&&e.name==="AbortError")return}
+        try{await navigator.clipboard.writeText(txt);toast("Копия скопирована — вставьте её в Заметки")}
+        catch(e){const t=document.getElementById("bkIn");t.value=txt;t.select();toast("Выделите текст в поле и скопируйте")}
+      };
+      document.getElementById("bkLoad").onclick=()=>{
+        const raw=document.getElementById("bkIn").value.trim();
+        let o;try{o=JSON.parse(raw.slice(raw.indexOf("{")))}catch(e){toast("Не получилось прочитать копию — вставьте текст целиком");return}
+        if(!o||!Array.isArray(o.doses)){toast("Это не похоже на копию");return}
+        const ids=new Set(doses.map(d=>d.id));let added=0;
+        for(const d of o.doses)if(d&&d.id&&!ids.has(d.id)){doses.push(d);added++}
+        if(Array.isArray(o.meds)&&o.meds.length){for(const m of o.meds)if(!meds.find(x=>x.id===m.id))meds.push(m);LS.set("meds",meds)}
+        if(o.alt)alt=o.alt,LS.set("alt",alt);
+        LS.set("doses",doses);document.getElementById("sheetHost").innerHTML="";render();toast("Восстановлено записей: "+added);
+      };
       document.getElementById("saveS").onclick=()=>{alt={on:document.getElementById("altOn").checked,gap:parseFloat(document.getElementById("altGap").value.replace(",","."))||0};LS.set("alt",alt);draft=draft.filter(m=>m.name.trim());document.getElementById("sheetHost").innerHTML="";saveMeds(draft);toast("Сохранено")};
     });
   };
@@ -525,6 +550,7 @@ document.getElementById("tempSave").onclick=()=>{
 updTempPrev();
 document.getElementById("tempInput").addEventListener("keydown",e=>{if(e.key==="Enter")document.getElementById("tempSave").click()});
 document.addEventListener("visibilitychange",()=>{if(!document.hidden)render()});
+try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
 render();tick();setInterval(tick,1000);
 </script>
 </body></html>
