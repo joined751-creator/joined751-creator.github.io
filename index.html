@@ -35,6 +35,7 @@ button{font:inherit;color:inherit;cursor:pointer;border:0;background:none;-webki
 button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .num{font-variant-numeric:tabular-nums}
 svg{display:block}
+[hidden]{display:none!important}
 
 /* header */
 header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-top:4px}
@@ -138,6 +139,19 @@ h2{font-family:var(--f-display);font-weight:600;font-size:15px;margin:0}
 .del.armed{background:var(--bad);color:#fff}
 .empty{color:var(--muted);text-align:center;padding:18px 8px;font-size:14px}
 
+.altcard{position:relative;overflow:hidden;background:var(--surface);border:1px solid color-mix(in srgb,var(--c) 40%,var(--line));border-radius:24px;padding:16px;display:grid;grid-template-columns:minmax(0,1fr);gap:12px;box-shadow:var(--shadow)}
+.altcard::before{content:"";position:absolute;inset:0;background:linear-gradient(120deg,color-mix(in srgb,var(--m1) 18%,transparent),transparent 45%,color-mix(in srgb,var(--m2) 18%,transparent));pointer-events:none}
+.altcard>*{position:relative}
+.seq{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.seq .st{display:inline-flex;align-items:center;gap:6px;padding:6px 12px 6px 9px;border-radius:999px;background:var(--surface2);font-size:13px;font-weight:700}
+.seq .st i{width:9px;height:9px;border-radius:50%;background:var(--sc);display:inline-block}
+.seq .st.prev{opacity:.7;font-weight:600}
+.seq .st.next{background:color-mix(in srgb,var(--c) 22%,transparent);box-shadow:inset 0 0 0 1.5px var(--c)}
+.seq .arr{color:var(--muted);font-weight:700}
+.nextname{font-family:var(--f-display);font-weight:800;font-size:24px;line-height:1.15;color:var(--c);overflow-wrap:anywhere}
+.why{font-size:12.5px;color:var(--muted);margin-top:6px;display:flex;gap:6px;align-items:center}
+.tog{display:flex;align-items:center;gap:10px;font-weight:600;font-size:14px;min-height:36px}
+.tog input{width:22px;height:22px;accent-color:var(--accent);flex:none;margin:0}
 .foot{color:var(--faint);font-size:12px;text-align:center;line-height:1.5}
 
 /* sheet */
@@ -182,6 +196,7 @@ h2{font-family:var(--f-display);font-weight:600;font-size:15px;margin:0}
     </button>
   </header>
 
+  <section class="altcard" id="alt" hidden></section>
   <section class="now" id="now"></section>
   <section class="cards" id="cards"></section>
 
@@ -230,7 +245,7 @@ const ICONS={
 function iconFor(m){const f=(m.form||"")+" "+m.name;return /свеч/i.test(f)?"supp":/сироп|суспенз/i.test(f)?"bottle":/спрей|аэроз/i.test(f)?"spray":"pill"}
 
 const LS={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
-let meds=LS.get("meds",DEFAULT_MEDS), doses=LS.get("doses",[]), pending={};
+let meds=LS.get("meds",DEFAULT_MEDS), doses=LS.get("doses",[]), pending={}, alt=LS.get("alt",{on:true,gap:4});
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
 function addDose(d){d.id=d.id||uid();doses.push(d);LS.set("doses",doses);render();return d.id}
 function removeDose(id){doses=doses.filter(x=>x.id!==id);LS.set("doses",doses);render()}
@@ -252,13 +267,19 @@ function medById(id){return meds.find(m=>m.id===id)}
 function lastOf(id){let b=null;for(const d of doses)if(d.med===id&&(!b||d.at>b.at))b=d;return b}
 function last24(id){const c=Date.now()-24*H;return doses.filter(d=>d.med===id&&d.at>c).length}
 
+function feverMeds(){return meds.filter(m=>m.fever)}
+function altActive(){return alt.on&&feverMeds().length>=2}
+function lastFever(exceptId){let b=null;for(const d of doses){const m=medById(d.med);if(m&&m.fever&&d.med!==exceptId&&(!b||d.at>b.at))b=d}return b}
+function feverTurn(){const fm=feverMeds(),l=lastFever();if(!l)return null;const i=fm.findIndex(m=>m.id===l.med);return fm[(i+1)%fm.length]}
 function stateOf(m,now){
   const last=lastOf(m.id),iv=(+m.hours||0)*H,n=last24(m.id);
-  if(!last)return{k:"never",last,iv,n};
-  const el=now-last.at;
-  if(iv&&el<iv)return{k:"wait",last,iv,n,el,left:iv-el,at:last.at+iv};
-  if(m.max&&n>=m.max)return{k:"limit",last,iv,n,el};
-  return{k:"ok",last,iv,n,el};
+  let at=last&&iv?last.at+iv:0,from=last?last.at:0,why="";
+  if(m.fever&&altActive()&&alt.gap){const o=lastFever(m.id);if(o){const t=o.at+alt.gap*H;if(t>at){at=t;from=o.at;why="пауза между жаропонижающими — "+String(alt.gap).replace(".",",")+" ч"}}}
+  const el=last?now-last.at:0,base={last,iv,n,el,at,from,why};
+  if(at>now)return Object.assign(base,{k:"wait",left:at-now});
+  if(m.max&&n>=m.max&&last)return Object.assign(base,{k:"limit"});
+  if(m.fever&&altActive()){const t=feverTurn();if(t&&t.id!==m.id)return Object.assign(base,{k:"notturn",turn:t})}
+  return Object.assign(base,{k:last?"ok":"never"});
 }
 function sig(){const now=Date.now();return meds.map(m=>stateOf(m,now).k).join()+"|"+new Date(now).getMinutes()}
 let lastSig="";
@@ -271,16 +292,18 @@ function render(){
   document.getElementById("cards").innerHTML=meds.map(m=>{
     const s=stateOf(m,now),ic=ICONS[iconFor(m)];
     const badge={never:'<span class="badge never">Не давали</span>',ok:'<span class="badge ok">Можно давать</span>',
-      wait:'<span class="badge wait num">через '+(s.left?dur(s.left):"")+'</span>',limit:'<span class="badge limit">Лимит '+s.n+'/'+m.max+'</span>'}[s.k];
+      wait:'<span class="badge wait num">через '+(s.left?dur(s.left):"")+'</span>',limit:'<span class="badge limit">Лимит '+s.n+'/'+m.max+'</span>',
+      notturn:'<span class="badge wait">⇄ очередь: '+(s.turn?esc(s.turn.name):"")+'</span>'}[s.k];
     const meta=[esc(m.form||""),m.hours?"каждые "+String(m.hours).replace(".",",")+" ч":"",m.max?s.n+" из "+m.max+" за 24 ч":""].filter(Boolean).join(" · ");
     let timer,cap="";
-    if(!s.last){timer='<div class="timer none"><span class="elapsed">Ещё не давали</span>'+badge+'</div>'}
+    const whyH=s.why&&s.k==="wait"?`<div class="why">⇄ ${esc(s.why)}</div>`:"";
+    if(!s.last){timer='<div class="timer none"><span class="elapsed">Ещё не давали</span>'+badge+'</div>'+(s.k==="wait"?`<div><div class="capsule"><div class="fill" style="width:${Math.min(100,(now-s.from)/(s.at-s.from)*100)}%"></div></div><div class="ends num"><span></span><span>можно в <b>${hm(s.at)}</b></span></div>${whyH}</div>`:"")}
     else{
-      const pct=s.iv?Math.min(100,(now-s.last.at)/s.iv*100):100;
+      const pct=s.k==="wait"?Math.min(100,(now-s.from)/(s.at-s.from)*100):100;
       timer=`<div><div class="eyebrow" style="margin-bottom:6px">Прошло с приёма</div><div class="timer"><span class="elapsed" data-since="${s.last.at}">${clockDur(now-s.last.at)}</span>${badge}</div></div>`;
       cap=`<div><div class="capsule"><div class="fill" style="width:${pct}%"></div><div class="half"></div></div>
         <div class="ends num"><span>дали <b>${hm(s.last.at)}</b>${dayKey(s.last.at)!==dayKey(now)?" "+dayName(s.last.at).toLowerCase():""}</span>
-        <span>${s.iv?(s.k==="wait"?"можно в <b>"+hm(s.at)+"</b>":"можно <b>сейчас</b>"):"интервал не задан"}</span></div></div>`;
+        <span>${s.k==="wait"?"можно в <b>"+hm(s.at)+"</b>":s.k==="notturn"?"сейчас очередь <b>"+esc(s.turn.name)+"</b>":s.iv||s.why?"можно <b>сейчас</b>":"интервал не задан"}</span></div>${whyH}</div>`;
     }
     return `<article class="card${s.k==="ok"||s.k==="never"?" ready":""}" style="--c:var(--${m.color||"m6"})">
       <div class="top"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ic}</svg></div>
@@ -296,9 +319,24 @@ function render(){
   for(const m of meds){const s=stateOf(m,now);if(s.k==="ok"||s.k==="never")can.push(m);else if(s.k==="wait")wait.push({m,s})}
   wait.sort((a,b)=>a.s.at-b.s.at);
   const chip=m=>`<span class="chip" style="--c:var(--${m.color||"m6"})"><i></i>${esc(m.name)}</span>`;
-  document.getElementById("now").innerHTML=
-    `<div class="tile"><span class="k">Жаропонижающее</span><span class="v">${fever?esc(medById(fever.med).name):"не давали"}</span><span class="s num" ${fever?`data-ago="${fever.at}"`:""}>${fever?dur(now-fever.at)+" назад":"—"}</span></div>
-     <div class="tile"><span class="k">Следующее</span><span class="v">${wait[0]?esc(wait[0].m.name):"—"}</span><span class="s num">${wait[0]?"в "+hm(wait[0].s.at)+" · через "+dur(wait[0].s.left):"никого не ждём"}</span></div>
+  // alternation card
+  const altEl=document.getElementById("alt");
+  if(altActive()){
+    const fm=feverMeds(),lf=lastFever(),nx=feverTurn()||fm[0],ns=stateOf(nx,now),lm=lf&&medById(lf.med);
+    const col=m=>"var(--"+(m.color||"m6")+")";
+    const pct=ns.k==="wait"?Math.min(100,(now-ns.from)/(ns.at-ns.from)*100):100;
+    altEl.hidden=false;altEl.style.setProperty("--c",col(nx));
+    altEl.innerHTML=`<div class="eyebrow">Жаропонижающие по очереди</div>
+      <div class="seq">${lm?`<span class="st prev" style="--sc:${col(lm)}"><i></i>${esc(lm.name)} · ${hm(lf.at)}</span><span class="arr">→</span>`:""}<span class="st next" style="--sc:${col(nx)}"><i></i>${esc(nx.name)}</span></div>
+      <div><div class="eyebrow" style="margin-bottom:4px">${lf?"Следующим даём":"Начните с любого"}</div><div class="nextname">${esc(nx.name)}</div>
+      <div class="meta num">${ns.k==="wait"?"можно в <b>"+hm(ns.at)+"</b> · через "+dur(ns.left):ns.k==="limit"?"уже "+ns.n+" раз за сутки":"можно давать сейчас"}${lf?" · с прошлого жаропонижающего "+dur(now-lf.at):""}</div></div>
+      ${lf?`<div><div class="capsule"><div class="fill" style="width:${pct}%"></div><div class="half"></div></div>${ns.why&&ns.k==="wait"?`<div class="why">⇄ ${esc(ns.why)}</div>`:""}</div>`:""}
+      <div class="actions"><button class="give" style="--c:${col(nx)}" data-give="${esc(nx.id)}">Дал ${esc(nx.name)}</button></div>`;
+  }else{altEl.hidden=true;altEl.innerHTML=""}
+
+  document.getElementById("now").innerHTML=(altActive()?"":
+    `<div class="tile"><span class="k">Жаропонижающее</span><span class="v">${fever?esc(medById(fever.med).name):"не давали"}</span><span class="s num">${fever?dur(now-fever.at)+" назад":"—"}</span></div>`)+
+    `<div class="tile${altActive()?" wide":""}"><span class="k">Следующее</span><span class="v">${wait[0]?esc(wait[0].m.name):"—"}</span><span class="s num">${wait[0]?"в "+hm(wait[0].s.at)+" · через "+dur(wait[0].s.left):"никого не ждём"}</span></div>
      <div class="tile wide"><span class="k">Можно дать сейчас</span>${can.length?`<div class="chips">${can.map(chip).join("")}</div>`:'<span class="s">Пока ничего — смотрите время на карточках</span>'}</div>`;
 
   // temperature
@@ -396,18 +434,21 @@ function openSettings(){
         <div class="r1"><span class="sw"></span><input data-i="${i}" data-k="name" value="${esc(m.name)}" aria-label="Название"><button class="x" data-rm="${i}" aria-label="Убрать">✕</button></div>
         <div class="r2"><label><span>Интервал, часов</span><input data-i="${i}" data-k="hours" class="num" inputmode="decimal" value="${m.hours||""}"></label>
         <label><span>Максимум за сутки</span><input data-i="${i}" data-k="max" class="num" inputmode="numeric" value="${m.max||""}"></label></div>
-        <label><span>Форма / заметка</span><input data-i="${i}" data-k="form" value="${esc(m.form||"")}"></label></div>`).join("")}
+        <label><span>Форма / заметка</span><input data-i="${i}" data-k="form" value="${esc(m.form||"")}"></label>
+        <label class="tog"><input type="checkbox" data-i="${i}" data-k="fever" ${m.fever?"checked":""}> Жаропонижающее</label></div>`).join("")}
+      <div class="medcard" style="--c:var(--accent)"><label class="tog"><input type="checkbox" id="altOn" ${alt.on?"checked":""}> Давать жаропонижающие по очереди</label>
+        <label><span>Минимум между разными жаропонижающими, часов</span><input id="altGap" class="num" inputmode="decimal" value="${alt.gap||""}"></label></div>
       <button class="secondary" id="addMed">+ Добавить лекарство</button>
-      <div class="note">Интервал и максимум приёмов — как сказал врач или как написано в инструкции. Пустое поле — без ограничения. Слова «свечи», «сироп», «спрей» в форме меняют иконку.</div>
+      <div class="note">Интервал и максимум приёмов — как сказал врач или как написано в инструкции. Пустое поле — без ограничения. Промежуток между разными жаропонижающими тоже уточните у врача. Слова «свечи», «сироп», «спрей» в форме меняют иконку.</div>
       <div class="row"><button class="secondary" id="cancelS">Отмена</button><button class="primary" id="saveS">Сохранить</button></div>`,()=>{
-      document.querySelectorAll(".medcard input").forEach(inp=>inp.oninput=()=>{
+      document.querySelectorAll(".medcard input[data-i]").forEach(inp=>inp.oninput=inp.onchange=()=>{
         const m=draft[inp.dataset.i],k=inp.dataset.k,v=inp.value;
-        m[k]=(k==="name"||k==="form")?v:(parseFloat(v.replace(",","."))||0);
+        m[k]=k==="fever"?inp.checked:(k==="name"||k==="form")?v:(parseFloat(v.replace(",","."))||0);
       });
       document.querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{draft.splice(+b.dataset.rm,1);draw()});
       document.getElementById("addMed").onclick=()=>{draft.push({id:uid(),name:"Новое лекарство",form:"",hours:8,max:0,color:COLORS[draft.length%COLORS.length],fever:false});draw()};
       document.getElementById("cancelS").onclick=closeSheet;
-      document.getElementById("saveS").onclick=()=>{draft=draft.filter(m=>m.name.trim());document.getElementById("sheetHost").innerHTML="";saveMeds(draft);toast("Сохранено")};
+      document.getElementById("saveS").onclick=()=>{alt={on:document.getElementById("altOn").checked,gap:parseFloat(document.getElementById("altGap").value.replace(",","."))||0};LS.set("alt",alt);draft=draft.filter(m=>m.name.trim());document.getElementById("sheetHost").innerHTML="";saveMeds(draft);toast("Сохранено")};
     });
   };
   draw();
